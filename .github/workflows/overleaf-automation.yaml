@@ -56,9 +56,11 @@ jobs:
       - name: Filter Commit File
         id: filter-commit
         run: |
-          if [ -s .commit_txt ]; then
-            if [ jq '.files.type .commit.json] == "png"; then
-                  [ jq '.files.contents_url .commit.json ] > .content_url
+          if [ -s .commit.json ]; then
+             datatype=
+             echo $.commit.json" | jq -c '.[]' | while read -r item; do
+               jq .files.type .commit.json > datatype
+               if [ datatype  == "png"]; then
                   curl -H "Accept: application/vnd.github+json" \
                   -H "X-GitHub-Api-Version: 2026-03-10" \
                   "https://api.github.com/repos/Shel-y/https://github.com/Shel-y/qintern2026-quantum-benchmarking/contents/$(cat .content_url)" > .graph.png
