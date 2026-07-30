@@ -54,7 +54,6 @@ def ec2_machine_cloud_monitor(config):
     ram_average = 0
 
     cw_client_instance = config.creds["cw_client"]
-    cw_client_instance.list_dashboards(PaginationConfig={"MaxItems": 1})
 
     ec2_usage = config.creds["ec2_client"].describe_instances(
         Filters=[{"Name": "instance-state-name", "Values": ["running"]}]

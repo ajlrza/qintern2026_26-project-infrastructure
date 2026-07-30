@@ -2,15 +2,13 @@ import boto3, os, sys
 from braket.aws import AwsSession
 
 def experiment_braket_monitor(config, run_result):
-    device = config.creds['braket_client'].search_devices()
 
     usage_results = {}
     infra_results = {}
 
     task_arn = getattr(run_result, "task_metadata", run_result).id if hasattr(run_result, "task_metadata") else getattr(run_result, "id", "")
     device_arn = getattr(run_result, "task_metadata", run_result).deviceId if hasattr(run_result, "task_metadata") else ""
-    
-    job_arn_fallback = getattr(run_result, "arn", "arn:aws:braket:us-east-1:123456789012:job/invalid-job-for-task")
+    job_arn = None
 
     tasks = {
         "get_quantum_task": config.creds['braket_client'].get_quantum_task,
@@ -29,15 +27,44 @@ def experiment_braket_monitor(config, run_result):
                 }
             ]
         },
-        "get_job": lambda: {"jobArn": job_arn_fallback},
+        "get_job": lambda: {"jobArn": job_arn},
     }
 
-    for task, task_value in tasks.items():
+    if (task_arn != ""):
+
+        tasks.pop("get_job")
+        tasks_config.pop("get_job")
+
+    elif (task_arn == ""):
+
+        tasks.pop("get_quantum_task")
+        tasks.pop("search_quantum_tasks")
+
+        tasks_config.pop("get_quantum_task")
+        tasks_config.pop("search_quantum_tasks")
+
         try:
-            result = task_value(**tasks_config[task]())
-            infra_results[task] = result
-        except Exception as e:
-            infra_results[task] = {"Error": str(e)}
+            job_arn = getattr(run_result, "task_metadata", run_result).jobArn if hasattr(run_result, "task_metadata") else getattr(run_result, "arn", "")
+            if (job_arn == ""):
+                tasks.pop("get_job")
+                tasks_config.pop("get_job")
+        except:
+            tasks.pop("get_job")
+            tasks_config.pop("get_job")
+
+    try:
+        for task, task_value in tasks.items():
+            try:
+                result = task_value(**tasks_config[task]())
+                infra_results[task] = result
+                infra_results["encountered_error"] = False
+            except Exception as e:
+                print({"Error": str(e)})
+    except:
+        print("Cannot retrieve braket attributes at the moment.")
+        infra_results["run_result"] = run_result
+        infra_results["encountered_error"] = True 
+
 
     braket_usage = config.creds['braket_client'].search_spending_limits(
         maxResults=5,
