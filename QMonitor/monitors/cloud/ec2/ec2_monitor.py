@@ -40,6 +40,7 @@ def ec2_instance_monitor(config):
 
 
 def ec2_machine_cloud_monitor(config):
+
     infra_metrics = [
         "CPUUtilization",
         "mem_used_percent",
@@ -48,8 +49,10 @@ def ec2_machine_cloud_monitor(config):
         "DiskReadOps",
         "DiskWriteOps",
     ]
+
     infra_results = []
     usage_results = {}
+
     ram_response = None
     ram_average = 0
 
@@ -64,15 +67,23 @@ def ec2_machine_cloud_monitor(config):
     detected_instance_type = ""
     
     reservations = ec2_usage.get("Reservations", [])
+
     for reservation in reservations:
+
         instances = reservation.get("Instances", [])
+
         for instance in instances:
+
             detected_instance_id = instance.get("InstanceId", "")
+
             detected_image_id = instance.get("ImageId", "")
+            
             detected_instance_type = instance.get("InstanceType", "")
             
             launch_time = instance.get("LaunchTime")
+
             if not launch_time:
+
                 continue
 
             current_time = datetime.now(timezone.utc)
@@ -85,8 +96,11 @@ def ec2_machine_cloud_monitor(config):
             }
 
     if detected_instance_id:
+
         for metric in infra_metrics:
+
             if metric == "mem_used_percent":
+
                 ram_response = cw_client_instance.get_metric_statistics(
                     Namespace="CWAgent",
                     MetricName=metric,
@@ -102,20 +116,30 @@ def ec2_machine_cloud_monitor(config):
                 )
 
                 if not ram_response.get("Datapoints"):
+
                     ram_response["RAM Summed Average"] = 0.0
+
                 else:
+
                     datapoints_count = len(ram_response["Datapoints"])
+
                     sum_datapoints = []
+
                     for i in range(0, datapoints_count):
                         ram_response["Datapoints"][i]["Timestamp"] = str(ram_response["Datapoints"][i]["Timestamp"])
+
                         sum_datapoints.append(ram_response["Datapoints"][i]["Average"])
+
                     ram_average = sum(sum_datapoints) / len(sum_datapoints)
+
                     ram_response["RAM Summed Average"] = ram_average
 
                 infra_results.append(ram_response)
+
                 continue
 
             average = 0
+
             metrics = cw_client_instance.get_metric_statistics(
                 Namespace="AWS/EC2",
                 MetricName=metric,
@@ -127,14 +151,23 @@ def ec2_machine_cloud_monitor(config):
             )
 
             if not metrics.get("Datapoints"):
+
                 metrics[f"{metric} Summed Average"] = 0.0
+
             else:
+
                 datapoints_count = len(metrics["Datapoints"])
+
                 sum_datapoints = []
+
                 for i in range(0, datapoints_count):
+
                     metrics["Datapoints"][i]["Timestamp"] = str(metrics["Datapoints"][i]["Timestamp"])
+
                     sum_datapoints.append(metrics["Datapoints"][i]["Average"])
+
                 average = sum(sum_datapoints) / len(sum_datapoints)
+
                 metrics[f"{metric} Summed Average"] = average
 
             infra_results.append(metrics)

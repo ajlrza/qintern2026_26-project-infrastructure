@@ -45,6 +45,7 @@ def experiment_braket_monitor(config, run_result):
 
         try:
             job_arn = getattr(run_result, "task_metadata", run_result).jobArn if hasattr(run_result, "task_metadata") else getattr(run_result, "arn", "")
+
             if (job_arn == ""):
                 tasks.pop("get_job")
                 tasks_config.pop("get_job")
@@ -53,15 +54,21 @@ def experiment_braket_monitor(config, run_result):
             tasks_config.pop("get_job")
 
     try:
+
         for task, task_value in tasks.items():
+
             try:
                 result = task_value(**tasks_config[task]())
+
                 infra_results[task] = result
                 infra_results["encountered_error"] = False
+
             except Exception as e:
-                print({"Error": str(e)})
+                infra_results["run_result"] = run_result
+                infra_results["encountered_error"] = True 
     except:
         print("Cannot retrieve braket attributes at the moment.")
+
         infra_results["run_result"] = run_result
         infra_results["encountered_error"] = True 
 
@@ -74,17 +81,24 @@ def experiment_braket_monitor(config, run_result):
     limits_list = braket_usage.get("spendingLimits", [])
 
     if (len(limits_list) >= 1):
+
         for limit in limits_list:
+
             usage_results["spending_limit"] = limit["spendingLimitArn"]
             usage_results["device_arn"] = limit["deviceArn"]
             usage_results["created_at"] = limit["createdAt"]
+
             max_budget = float(limit["spendingLimit"])
             queued_cost = float(limit["queuedSpend"])
             actual_spent = float(limit["totalSpend"])
+
             remaining_budget = max_budget - (actual_spent + queued_cost)
+
             if remaining_budget <= max_budget - 100:
+
                 usage_results["Warning"] = True
                 usage_results["remaining_budget"] = remaining_budget
+                
             usage_results["remaining_budget"] = remaining_budget
             braket_usage["tracking_period"] = (limit["timePeriod"]["startAt"], limit["timePeriod"]["endAt"])
     else:
